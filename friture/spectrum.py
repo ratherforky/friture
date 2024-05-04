@@ -101,6 +101,18 @@ class Spectrum_Widget(QtWidgets.QWidget):
         epsilon = 1e-30
         return 10. * log10(sp + epsilon)
 
+    def harmonic_product_spectrum(self, sp):
+        # Chose 3 harmonics for no particularly good reason; initial results
+        # for pitch detection are good.
+        product_count = 3
+  
+        # Downsample and multiply
+        harmonic_length = sp.shape[0] // product_count
+        res = sp[:harmonic_length]
+        for i in range(2, product_count + 1):
+            res *= sp[::i][:harmonic_length]
+        return res
+
     def handle_new_data(self, floatdata):
         # we need to maintain an index of where we are in the buffer
         index = self.audiobuffer.ringbuffer.offset
@@ -151,11 +163,16 @@ class Spectrum_Widget(QtWidgets.QWidget):
 
             # the log operation and the weighting could be deffered
             # to the post-weedening !
-
             i = argmax(dB_spectrogram)
             fmax = self.freq[i]
 
-            self.PlotZoneSpect.setdata(self.freq, dB_spectrogram, fmax)
+            # The maximum value in the harmonic product spectrum is quite
+            # likely to correspond to a fundamental frequency.
+            harmonic_products = self.harmonic_product_spectrum(sp1)
+            pitch_idx = argmax(harmonic_products)
+            fpitch = self.freq[pitch_idx]
+
+            self.PlotZoneSpect.setdata(self.freq, dB_spectrogram, fmax, fpitch)
 
     # method
     def canvasUpdate(self):
@@ -261,6 +278,9 @@ class Spectrum_Widget(QtWidgets.QWidget):
 
     def setShowFreqLabel(self, showFreqLabel):
         self.PlotZoneSpect.setShowFreqLabel(showFreqLabel)
+
+    def setShowPitchLabel(self, showPitchLabel):
+        self.PlotZoneSpect.setShowPitchLabel(showPitchLabel)
 
     def settings_called(self, checked):
         self.settings_dialog.show()
